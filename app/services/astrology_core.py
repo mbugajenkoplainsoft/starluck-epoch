@@ -223,13 +223,13 @@ def swiss_angles_and_houses(dt_utc: datetime, loc: GeoLocation, system_code: byt
     raise RuntimeError(f"Swiss houses computation failed: {last_err}")
 
 
-def to_ephem_date(dt_utc: datetime) -> ephem.Date:
+def to_ephem_date(dt_utc: datetime) -> ephem.Date: # pyright: ignore[reportInvalidTypeForm]
     if dt_utc.tzinfo is None:
         raise ValueError("UTC datetime required")
     return ephem.Date(dt_utc)
 
 
-def body_ecliptic_lon_pyephem(body: ephem.Body, dt_utc: datetime) -> float:
+def body_ecliptic_lon_pyephem(body: ephem.Body, dt_utc: datetime) -> float: # pyright: ignore[reportInvalidTypeForm]
     body.compute(dt_utc)
     return float(math.degrees(ephem.Ecliptic(body).lon)) % 360.0
 
