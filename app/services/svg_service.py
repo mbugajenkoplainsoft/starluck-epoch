@@ -79,41 +79,14 @@ class SVGService:
     
     def _create_gradient_defs(self, cx: float, cy: float, r_sign_inner: float, r_sign_outer: float) -> str:
         """Create filter/gradient definitions"""
+        # Keep a minimal set of defs (no shadows/glows) so SVGs remain flat and themeable
         defs = ['<defs>']
-        
-        defs.append('''
-            <filter id="planet-shadow" x="-50%" y="-50%" width="200%" height="200%">
-                <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
-            </filter>
-        ''')
-        
-        defs.append('''
-            <filter id="glyph-glow">
-                <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
-                <feMerge>
-                    <feMergeNode in="coloredBlur"/>
-                    <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-            </filter>
-        ''')
-        
-        defs.append('''
-            <filter id="angle-glow">
-                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                <feMerge>
-                    <feMergeNode in="coloredBlur"/>
-                    <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-            </filter>
-        ''')
-        
         defs.append('''
             <radialGradient id="center-gradient">
                 <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
                 <stop offset="100%" style="stop-color:#F6F8FA;stop-opacity:1" />
             </radialGradient>
         ''')
-        
         defs.append('</defs>')
         return '\n'.join(defs)
 
@@ -136,36 +109,42 @@ class SVGService:
 
         # CSS - optimized for mobile viewing in React Native (scales well on desktop too)
         css = """
+        @font-face {
+            font-family: 'Ndot';
+            src: url('/fonts/Ndot-57.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=Cinzel:wght@400;500;600;700;800;900&amp;display=swap');
 
-        /* Background */
-        .chart-bg { fill: #FAFBFC; }
+        /* Background - transparent so app theme controls the canvas */
+        .chart-bg { fill: none; }
         .outer-ring { fill: none; stroke: #E1E4E8; stroke-width: 3; }
-        .inner-bg { fill: #FFFFFF; }
-        .center-circle { fill: #F6F8FA; stroke: #E1E4E8; stroke-width: 2; }
+        .inner-bg { fill: none; }
+        .center-circle { fill: none; stroke: #E1E4E8; stroke-width: 2; }
 
-        /* Zodiac band - larger text and thicker lines for mobile */
-        .zodiac-band   { fill: #000000; }
-        .zodiac-cutout { fill: #FFFFFF; }
+        /* Zodiac band - use theme variable; default to Tailwind slate-900 */
+        .zodiac-band   { fill: var(--svg-zodiac, #0f172a); }
+        .zodiac-cutout { fill: none; }
         .zodiac-divider { stroke: #FFFFFF; stroke-width: 2; }
 
-        .sign-text { 
-            font: 800 18px 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            fill: #FFFFFF; 
-            text-anchor: middle; 
-            dominant-baseline: middle; 
-            letter-spacing: 1px; 
+        .sign-text {
+            font: 800 18px 'Ndot', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            fill: currentColor;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            letter-spacing: 1px;
             text-transform: uppercase;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.6);
         }
         
         /* Houses - more visible */
         .house-circle { fill: none; stroke: #D0D7DE; stroke-width: 2.5; }
         .house-line { stroke: #D0D7DE; stroke-width: 2; opacity: 0.7; }
-        .house-num { 
-            font: 700 22px 'Cinzel', serif; 
-            fill: #1A1A1A; 
-            text-anchor: middle; 
+        .house-num {
+            font: 700 22px 'Ndot', Cinzel, serif;
+            fill: currentColor;
+            text-anchor: middle;
             dominant-baseline: middle;
             letter-spacing: 0.5px;
         }
@@ -175,26 +154,25 @@ class SVGService:
         .angle-marker-outer { fill: #2C3E50; }
         .angle-marker-inner { fill: #FFD700; }
         .angle-text-bg { fill: #2C3E50; rx: 4; }
-        .angle-text { 
-            font: 900 16px 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            fill: #FFFFFF; 
-            text-anchor: middle; 
+        .angle-text {
+            font: 900 16px 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            fill: #FFFFFF;
+            text-anchor: middle;
             dominant-baseline: middle;
             text-transform: uppercase;
             letter-spacing: 1.2px;
         }
         
-        /* Planets - VERY LARGE black glyphs with NO background */
-        .planet-glyph { 
-            font: 400 44px serif; 
-            text-anchor: middle; 
+        /* Planets - VERY LARGE glyphs with NO background */
+        .planet-glyph {
+            font: 400 44px serif;
+            text-anchor: middle;
             dominant-baseline: middle;
-            fill: #1A1A1A;
-            filter: url(#glyph-glow);
+            fill: currentColor;
         }
-        .planet-degree { 
-            font: 600 13px 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            text-anchor: middle; 
+        .planet-degree {
+            font: 600 13px 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            text-anchor: middle;
             dominant-baseline: middle;
             fill: #2C3E50;
             font-weight: 600;
@@ -323,7 +301,7 @@ class SVGService:
             svg.append(line_at(lon, tick_start, tick_end, "angle-tick"))
             # marker + compact label hugging the band (larger for mobile)
             x, y = self._pol_oriented(lon, r_sign_inner - 12, cx, cy, asc)
-            svg.append(f'<circle class="angle-marker-outer" cx="{x:.1f}" cy="{y:.1f}" r="7" filter="url(#angle-glow)"/>')
+            svg.append(f'<circle class="angle-marker-outer" cx="{x:.1f}" cy="{y:.1f}" r="7"/>')
             svg.append(f'<circle class="angle-marker-inner" cx="{x:.1f}" cy="{y:.1f}" r="3.5"/>')
             text_x, text_y = self._pol_oriented(lon, r_sign_inner - 28, cx, cy, asc)
             svg.append(f'<rect class="angle-text-bg" x="{text_x-20:.1f}" y="{text_y-9:.1f}" width="40" height="18"/>')
@@ -440,24 +418,30 @@ class SVGService:
         r_inner_circle = size * 0.16
 
         css = """
+        @font-face {
+            font-family: 'Ndot';
+            src: url('/fonts/Ndot-57.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=Cinzel:wght@400;500;600;700;800;900&amp;display=swap');
         
-        .chart-bg { fill: #FAFBFC; }
+        .chart-bg { fill: none; }
         .outer-ring { fill: none; stroke: #E1E4E8; stroke-width: 3; }
-        .center-circle { fill: #F6F8FA; stroke: #E1E4E8; stroke-width: 2; }
+        .center-circle { fill: none; stroke: #E1E4E8; stroke-width: 2; }
         
         /* Zodiac band - larger for mobile */
-        .zodiac-band   { fill: #000000; }
-        .zodiac-cutout { fill: #FFFFFF; }
+        .zodiac-band   { fill: var(--svg-zodiac, #0f172a); }
+        .zodiac-cutout { fill: none; }
         .zodiac-divider { stroke: #FFFFFF; stroke-width: 2; }
-        .sign-text { 
-            font: 800 18px 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            fill: #FFFFFF; 
-            text-anchor: middle; 
-            dominant-baseline: middle; 
-            letter-spacing: 1px; 
+        .sign-text {
+            font: 800 18px 'Ndot', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            fill: currentColor;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            letter-spacing: 1px;
             text-transform: uppercase;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.6);
         }
         
         /* Planet rings - thicker lines */
@@ -467,10 +451,10 @@ class SVGService:
         /* Houses - more visible */
         .house-circle { fill: none; stroke: #D0D7DE; stroke-width: 2.5; }
         .house-line { stroke: #D0D7DE; stroke-width: 2; opacity: 0.7; }
-        .house-num { 
-            font: 700 20px 'Cinzel', serif; 
-            fill: #1A1A1A; 
-            text-anchor: middle; 
+        .house-num {
+            font: 700 20px 'Ndot', Cinzel, serif;
+            fill: currentColor;
+            text-anchor: middle;
             dominant-baseline: middle;
             letter-spacing: 0.5px;
         }
@@ -479,10 +463,10 @@ class SVGService:
         .angle-tick { stroke: #4A5568; stroke-width: 1.5; stroke-linecap: round; }
         .angle-marker { fill: #FFD700; stroke: #2C3E50; stroke-width: 2; }
         .angle-text-bg { fill: #2C3E50; rx: 4; }
-        .angle-text { 
-            font: 900 14px 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            fill: #FFFFFF; 
-            text-anchor: middle; 
+        .angle-text {
+            font: 900 14px 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            fill: #FFFFFF;
+            text-anchor: middle;
             dominant-baseline: middle;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -491,23 +475,21 @@ class SVGService:
         /* Planets - VERY LARGE glyphs with NO background - differentiated colors */
         .planet-inner { }
         .planet-outer { opacity: 0.9; }
-        .planet-glyph-inner { 
-            font: 400 42px serif; 
-            text-anchor: middle; 
+        .planet-glyph-inner {
+            font: 400 42px serif;
+            text-anchor: middle;
             dominant-baseline: middle;
-            fill: #000000;
-            filter: url(#glyph-glow);
+            fill: currentColor;
         }
-        .planet-glyph-outer { 
-            font: 400 42px serif; 
-            text-anchor: middle; 
+        .planet-glyph-outer {
+            font: 400 42px serif;
+            text-anchor: middle;
             dominant-baseline: middle;
             fill: #DC2626;
-            filter: url(#glyph-glow);
         }
-        .planet-degree { 
-            font: 600 12px 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            text-anchor: middle; 
+        .planet-degree {
+            font: 600 12px 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            text-anchor: middle;
             dominant-baseline: middle;
             fill: #2C3E50;
         }
