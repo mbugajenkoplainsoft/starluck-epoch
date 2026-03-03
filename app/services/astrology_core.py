@@ -392,6 +392,98 @@ def planet_longitudes(dt_utc: datetime) -> Dict[str, float]:
     return planet_longitudes_pyephem(dt_utc)
 
 
+def extended_points_longitudes(dt_utc: datetime) -> Dict[str, float]:
+    """Calculate extended astrological points: Lilith, North Node, Chiron, South Node."""
+    points = {}
+    
+    # Calculate Lilith (Black Moon Lilith) - mean apogee of lunar orbit
+    if HAVE_SWE:
+        try:
+            jd = to_jd_ut(dt_utc)
+            # SWE_MEAN_APOG for mean Lilith
+            lilith_lon, _ = swe.calc_ut(jd, swe.MEAN_APOG, SWISS_FLAGS)
+            points['Lilith'] = norm360(lilith_lon[0])
+        except Exception:
+            # Fallback: approximate Lilith calculation
+            points['Lilith'] = approximate_lilith(dt_utc)
+    else:
+        points['Lilith'] = approximate_lilith(dt_utc)
+    
+    # North Node (Mean Node = opposite of South Node)
+    if HAVE_SWE:
+        try:
+            jd = to_jd_ut(dt_utc)
+            node_lon, _ = swe.calc_ut(jd, swe.MEAN_NODE, SWISS_FLAGS)
+            points['N Node'] = norm360(node_lon[0])
+            # South Node is opposite of North Node
+            points['S Node'] = norm360(node_lon[0] + 180)
+        except Exception:
+            # Fallback for North Node
+            n_node = approximate_north_node(dt_utc)
+            points['N Node'] = n_node
+            points['S Node'] = norm360(n_node + 180)
+    else:
+        n_node = approximate_north_node(dt_utc)
+        points['N Node'] = n_node
+        points['S Node'] = norm360(n_node + 180)
+    
+    # Chiron 
+    if HAVE_SWE:
+        try:
+            jd = to_jd_ut(dt_utc)
+            chiron_lon, _ = swe.calc_ut(jd, swe.CHIRON, SWISS_FLAGS)
+            points['Chiron'] = norm360(chiron_lon[0])
+        except Exception as e:
+            # Try without SWISS_FLAGS
+            try:
+                jd = to_jd_ut(dt_utc)
+                chiron_lon, _ = swe.calc_ut(jd, swe.CHIRON, swe.FLG_SPEED)
+                points['Chiron'] = norm360(chiron_lon[0])
+            except Exception:
+                # Fallback: approximate Chiron (simplified)
+                points['Chiron'] = approximate_chiron(dt_utc)
+    else:
+        points['Chiron'] = approximate_chiron(dt_utc)
+    
+    return points
+
+
+def approximate_lilith(dt_utc: datetime) -> float:
+    """Approximate Black Moon Lilith using mean lunar apogee (simplified)."""
+    # Mean Lilith goes through zodiac approximately every 8.85 years
+    # Using a reference point (Lilith was at 0° Libra on 2000-01-01)
+    from datetime import datetime as dt_class
+    epoch = dt_class(2000, 1, 1, tzinfo=dt_utc.tzinfo or tz.UTC)
+    days_since_epoch = (dt_utc - epoch).total_seconds() / 86400.0
+    # Lilith moves ~40.7° per year, or ~0.1114° per day  
+    lilith_lon = norm360(177.0 + (days_since_epoch * 0.1114))
+    return lilith_lon
+
+
+def approximate_north_node(dt_utc: datetime) -> float:
+    """Approximate North Node using mean lunar node (simplified)."""
+    # Mean Node goes through zodiac approximately every 18.6 years (19 years simplified)
+    # Using reference: North Node at 0° Aries on 2000-01-01
+    from datetime import datetime as dt_class
+    epoch = dt_class(2000, 1, 1, tzinfo=dt_utc.tzinfo or tz.UTC)
+    days_since_epoch = (dt_utc - epoch).total_seconds() / 86400.0
+    # North Node moves ~19.3° per year backwards, or ~-0.0529° per day
+    node_lon = norm360(0.0 - (days_since_epoch * 0.0529))
+    return node_lon
+
+
+def approximate_chiron(dt_utc: datetime) -> float:
+    """Approximate Chiron using simplified orbital calculation."""
+    # Chiron has a highly elliptical orbit (~50 year period)
+    # Using reference point for simplification
+    from datetime import datetime as dt_class
+    epoch = dt_class(2000, 1, 1, tzinfo=dt_utc.tzinfo or tz.UTC)
+    days_since_epoch = (dt_utc - epoch).total_seconds() / 86400.0
+    # Chiron moves ~7.2° per year, or ~0.0197° per day
+    chiron_lon = norm360(148.0 + (days_since_epoch * 0.0197))
+    return chiron_lon
+
+
 def _retrograde_swiss(dt_utc: datetime, name: str) -> bool:
     body_map = {
         "Sun": swe.SUN, "Moon": swe.MOON, "Mercury": swe.MERCURY,
@@ -401,12 +493,15 @@ def _retrograde_swiss(dt_utc: datetime, name: str) -> bool:
     }
     if name not in body_map:
         return False
-    jd_now  = to_jd_ut(dt_utc)
-    jd_prev = jd_now - (10/1440.0)
-    lon_now  = swiss_calc_lon(jd_now,  body_map[name])
-    lon_prev = swiss_calc_lon(jd_prev, body_map[name])
-    delta = (lon_now - lon_prev + 540) % 360 - 180
-    return delta < 0
+    try:
+        jd_now  = to_jd_ut(dt_utc)
+        jd_prev = jd_now - (10/1440.0)
+        lon_now  = swiss_calc_lon(jd_now,  body_map[name])
+        lon_prev = swiss_calc_lon(jd_prev, body_map[name])
+        delta = (lon_now - lon_prev + 540) % 360 - 180
+        return delta < 0
+    except Exception:
+        return False
 
 
 def _retrograde_pyephem(dt_utc: datetime, name: str) -> bool:

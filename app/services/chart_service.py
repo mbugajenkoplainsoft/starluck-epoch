@@ -90,6 +90,16 @@ class ChartService:
                 }
                 for name, planet in chart_data["planets"].items()
             },
+            extended_points={
+                name: {
+                    "lon": point["lon"],
+                    "sign": point["sign"],
+                    "deg": point["deg"],
+                    "house": point["house"],
+                    "retro": point["retro"]
+                }
+                for name, point in chart_data["extended_points"].items()
+            },
             aspects=chart_data["aspects"],
             moon_phase={
                 "name": chart_data["moon_phase"]["name"],
@@ -102,7 +112,7 @@ class ChartService:
                            house_system: str = "WHOLE", swe_path: str = None) -> Dict:
         """Compute natal chart - extracted from CLI logic."""
         from app.services.astrology_core import (
-            planet_longitudes, swiss_angles_and_houses, is_day_chart,
+            planet_longitudes, extended_points_longitudes, swiss_angles_and_houses, is_day_chart,
             part_of_fortune, moon_phase_info_from_lons, find_aspects,
             deg_to_signpos, house_index_for_longitude, norm360,
             _retrograde_swiss, _retrograde_pyephem, whole_sign_houses,
@@ -135,6 +145,7 @@ class ChartService:
             HAVE_SWE_FILES = False
 
         lons = planet_longitudes(dt_utc)
+        ext_lons = extended_points_longitudes(dt_utc)
 
         hs = house_system.upper()
         if HAVE_SWE:
@@ -169,6 +180,22 @@ class ChartService:
         planets["PartOfFortune"] = {"lon": pof_lon, "sign": s, "deg": d,
                                     "house": house_index_for_longitude(houses, pof_lon), "retro": False}
 
+        # Process extended points
+        extended_points: Dict[str, Dict] = {}
+        for name, lon in ext_lons.items():
+            if lon is not None:
+                sign, deg_in_sign, _ = deg_to_signpos(lon)
+                house_i = house_index_for_longitude(houses, lon)
+                # Only calculate retrograde for Chiron; nodes don't go retrograde
+                if name == "Chiron":
+                    try:
+                        retro = _retrograde_swiss(dt_utc, name) if HAVE_SWE else False
+                    except Exception:
+                        retro = False
+                else:
+                    retro = False
+                extended_points[name] = {"lon": lon, "sign": sign, "deg": deg_in_sign, "house": house_i, "retro": retro}
+
         aspects = find_aspects({k: v["lon"] for k,v in planets.items() if k != "PartOfFortune"})
 
         phase_name, phase_angle = moon_phase_info_from_lons(lons["Sun"], lons["Moon"])
@@ -185,6 +212,7 @@ class ChartService:
             "angles": {"ASC": asc, "DS": norm360(asc+180), "MC": mc, "IC": norm360(mc+180)},
             "houses": houses, "house_system": hs,
             "planets": planets,
+            "extended_points": extended_points,
             "aspects": aspects,
             "moon_phase": {"name": phase_name, "angle": phase_angle},
             "sect": "DAY" if day_chart else "NIGHT",

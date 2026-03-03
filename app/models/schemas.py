@@ -76,6 +76,7 @@ class NatalChartResponse(BaseModel):
     houses: List[float] = Field(..., description="House cusps")
     house_system: str = Field(..., description="House system used")
     planets: Dict[str, PlanetPosition] = Field(..., description="Planet positions")
+    extended_points: Dict[str, PlanetPosition] = Field(default_factory=dict, description="Extended astrological points (Lilith, North Node, Chiron)")
     aspects: List[Aspect] = Field(..., description="Major aspects")
     moon_phase: MoonPhase = Field(..., description="Moon phase")
     sect: str = Field(..., description="Chart sect (DAY/NIGHT)")
