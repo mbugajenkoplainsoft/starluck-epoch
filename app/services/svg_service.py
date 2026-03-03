@@ -125,8 +125,8 @@ class SVGService:
         .center-circle { fill: none; stroke: #E1E4E8; stroke-width: 2; }
 
         /* Zodiac band - use theme variable; default to Tailwind slate-900 */
-        .zodiac-band   { fill: var(--svg-zodiac, #0f172a); }
-        .zodiac-cutout { fill: none; }
+.zodiac-band   { fill: transparent; }
+.zodiac-cutout { display: none; }  # optional: hide unused element
         .zodiac-divider { stroke: #FFFFFF; stroke-width: 2; }
 
         .sign-text {
