@@ -52,8 +52,14 @@ STARLUCK_SWE_PATH=                   # Optional; works without external files bu
 
 ### Start the Server
 
+You can launch the API directly with Uvicorn or use the provided helper script which bootstraps the virtual
+environment and installs dependencies automatically.
+
 ```bash
-uvicorn main:app --reload
+# from repository root
+python -m uvicorn main:app --reload          # manual
+# or on Windows Powershell
+scripts\start-starluck.ps1                  # creates/activates .venv and runs uvicorn
 ```
 
 **Health Check:** `GET /api/v1/health`
